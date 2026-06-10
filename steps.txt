@@ -1,0 +1,321 @@
+╔══════════════════════════════════════════════════════════════╗
+║         ML PIPELINE v2 — COMPLETE STEPS GUIDE               ║
+╚══════════════════════════════════════════════════════════════╝
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 1 — Load Dataset
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Kya hota hai : CSV file ko pandas se read karo
+  Input        : CSV_PATH (file ka path)
+  Output       : Raw DataFrame (df)
+  Prints       : Shape, column names, pehli 3 rows
+  Example      : titanic.csv → (891, 12) shape
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 2 — Remove Irrelevant Columns
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Kya hota hai : Useless columns automatically detect karke drop karo
+  Input        : Raw DataFrame
+  Output       : Cleaned DataFrame (useless cols removed)
+
+  3 Types of columns jo drop hoti hain:
+  ┌─────────────────┬──────────────────────────────────────────┐
+  │ Type            │ Condition                                │
+  ├─────────────────┼──────────────────────────────────────────┤
+  │ High Missing    │ >50% values missing hain                 │
+  │ Constant        │ Sirf 1 unique value hai (koi info nahi)  │
+  │ ID-like         │ Unique values == Total rows (ID column)  │
+  └─────────────────┴──────────────────────────────────────────┘
+
+  NOTE : Target column kabhi drop nahi hoti — protected hai.
+  Config: MISSING_THRESHOLD = 0.5 (50%)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 3 — Column Identification
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Kya hota hai : Har column ko Numerical ya Categorical mein sort karo
+  Input        : Cleaned DataFrame
+  Output       : num_cols list + cat_cols list
+
+  Logic:
+  → int/float dtype  →  Numerical column
+  → object/string    →  Categorical column
+  → SPECIAL CASE: Agar numerical column mein <=10 unique values
+    hain toh use Categorical treat karo
+    (Example: Pclass = 1,2,3 → sirf 3 values → categorical)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 4 — Missing Value Handling
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Kya hota hai : Missing/NaN values ko fill karo
+  Input        : DataFrame with missing values
+  Output       : DataFrame with no missing values
+
+  Strategy:
+  ┌──────────────────┬────────────────────────────────────────┐
+  │ Column Type      │ Fill Strategy                          │
+  ├──────────────────┼────────────────────────────────────────┤
+  │ Numerical        │ Median se fill karo                    │
+  │ Categorical      │ Mode (most frequent) se fill karo      │
+  └──────────────────┴────────────────────────────────────────┘
+
+  Kyun Median? — Outliers se affect nahi hota
+  Kyun Mode?   — Category mein sabse common value logical hai
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5 — Outlier Handling (IQR Capping)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Kya hota hai : Extreme values ko cap karo (delete nahi, sirf limit karo)
+  Input        : Numerical columns
+  Output       : Capped numerical values
+
+  Formula:
+    Q1  = 25th percentile
+    Q3  = 75th percentile
+    IQR = Q3 - Q1
+
+    Lower Bound = Q1 - 1.5 × IQR
+    Upper Bound = Q3 + 1.5 × IQR
+
+    Value < Lower  →  Lower pe set karo
+    Value > Upper  →  Upper pe set karo
+
+  Example:
+    Age column mein 150 value hai → unrealistic
+    Upper bound = 65 → 150 ko 65 pe cap kar do
+
+  Config: OUTLIER_IQR_FACTOR = 1.5 (standard value)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 6 — Encoding & Scaling
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Kya hota hai : Data ko numbers mein convert karo + scale karo
+  Input        : Mixed type DataFrame
+  Output       : Fully numerical DataFrame (ML ke liye ready)
+
+  A) Categorical Encoding:
+  ┌────────────────────┬────────────────────────────────────────┐
+  │ Unique Values      │ Method                                 │
+  ├────────────────────┼────────────────────────────────────────┤
+  │ <=10 unique values │ OneHotEncoding (dummy columns banao)   │
+  │ >10 unique values  │ LabelEncoding  (0,1,2,3... assign karo)│
+  └────────────────────┴────────────────────────────────────────┘
+
+  B) Target Column Encoding:
+    Agar target string hai (e.g. "yes"/"no") → LabelEncoder
+
+  C) Numerical Scaling:
+    StandardScaler → mean=0, std=1 pe scale karo
+    Kyun? — SVM, KNN, LogReg distance-based hain, scale matter karta hai
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 7 — Export Cleaned CSV
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Kya hota hai : Processed data ko CSV mein save karo
+  Input        : Fully processed DataFrame
+  Output       : cleaned_data.csv file
+
+  Kyun? — Future use ke liye, reprocessing avoid karo,
+           debugging ke liye dekh sako data kaisa bana
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 8 — Determine Task Type
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Kya hota hai : Auto-detect karo ki problem Classification hai ya Regression
+  Input        : Target column
+  Output       : "classification" ya "regression" string
+
+  Logic:
+  ┌──────────────────────────────┬──────────────────────────────┐
+  │ Condition                    │ Task                         │
+  ├──────────────────────────────┼──────────────────────────────┤
+  │ Target dtype = object/string │ Classification               │
+  │ Target unique values <= 20   │ Classification               │
+  │ Target unique values > 20    │ Regression                   │
+  └──────────────────────────────┴──────────────────────────────┘
+
+  Example:
+    Survived → 0 or 1 → 2 unique values → Classification
+    House Price → 50,000 values → Regression
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 9 — Class Imbalance Handling (SMOTE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Kya hota hai : Agar classes unequal hain toh balance karo
+  Applies to   : Sirf Classification tasks
+  Input        : X_train, y_train
+  Output       : Balanced X_train, y_train
+
+  Problem:
+    Class 0 (Not Survived): 700 samples
+    Class 1 (Survived)    :  50 samples   ← minority
+    Model sirf 0 predict karega — easy accuracy milegi
+
+  Solution — SMOTE (Synthetic Minority Oversampling Technique):
+    Minority class ke synthetic (fake-but-realistic) samples banao
+    Jab tak dono classes roughly equal na ho jayein
+
+  Config: IMBALANCE_THRESHOLD = 0.2
+    Minority ratio < 20% → SMOTE apply karo
+    Minority ratio >= 20% → data balanced hai, skip karo
+
+  IMPORTANT: SMOTE sirf TRAINING data pe apply hota hai.
+             Test data kabhi touch nahi hota.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 10 — Model Training + Hyperparameter Tuning
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Kya hota hai : Multiple models train karo + best params dhundho
+
+  Classification Models (12):
+    1.  Logistic Regression
+    2.  Decision Tree
+    3.  Random Forest
+    4.  Gradient Boosting
+    5.  SVM (SVC)
+    6.  K-Nearest Neighbors
+    7.  Naive Bayes
+    8.  Bagging (DT base)
+    9.  AdaBoost
+    10. Extra Trees
+    11. Voting Classifier (LR + RF + GB)
+    12. LightGBM  (if installed)
+    13. XGBoost   (if installed)
+
+  Regression Models (13):
+    1.  Linear Regression
+    2.  Ridge Regression
+    3.  Lasso Regression
+    4.  ElasticNet
+    5.  Bayesian Ridge
+    6.  Decision Tree Regressor
+    7.  Random Forest Regressor
+    8.  Gradient Boosting Regressor
+    9.  SVR
+    10. Bagging (DT base)
+    11. AdaBoost Regressor
+    12. Extra Trees Regressor
+    13. Voting Regressor (LR + RF + GB)
+    14. LightGBM Regressor (if installed)
+    15. XGBoost Regressor  (if installed)
+
+  Hyperparameter Tuning — GridSearchCV:
+    Jo models param_grid mein hain → GridSearchCV (5-fold) se best params dhundho
+    Jo nahi hain (Naive Bayes, Bagging, Voting) → default params se train karo
+
+  Metrics:
+    Classification → Test Accuracy %
+    Regression     → R² Score + RMSE
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 10b — Smart Model Selection + Reason  [NEW in v2]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Kya hota hai : Best model choose karo + reason clearly explain karo
+
+  Case 1 — No Tie (ek clear winner):
+    → Highest score wala model seedha winner
+    → Reason print hota hai: kyun choose kiya, model ki nature kya hai
+
+  Case 2 — Tie (multiple models same score pe):
+    → 3 steps mein winner decide hota hai:
+
+    Step A — Priority Order:
+      Simpler models ko prefer karo jab accuracy same ho
+      Order: Logistic → Naive Bayes → KNN → DT → SVM →
+             Bagging → AdaBoost → Extra Trees → GB →
+             RF → LightGBM → XGBoost → Voting
+
+    Step B — Cross Validation (5-fold):
+      Tied models pe CV run karo
+      CV mean aur std print hota hai
+
+    Step C — Final Decision:
+      CV difference > 0.005 → Better CV wala jitega
+      CV difference <= 0.005 → Priority order wala jitega (simpler model)
+
+  Why simpler model in a tie?
+    • Faster prediction
+    • Easier to explain
+    • Less overfitting risk
+    • Easier to debug
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 11 — Save Best Model as Pickle
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Kya hota hai : Best model ko .pkl file mein save karo
+  Input        : Best trained model object
+  Output       : best_model_<ModelName>.pkl file
+
+  Example filename: best_model_Logistic_Regression.pkl
+
+  Kyun Pickle?
+    → Model dobara train nahi karna padega
+    → Naye data pe seedha load karke predict kar sako
+    → Production deployment ke liye ready
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CONFIGURATION VARIABLES (Change karo apne data ke hisaab se)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSV_PATH           = "titanic.csv"    ← Apna CSV path
+  TARGET_COLUMN      = "Survived"       ← Predict karna hai jo column
+  CLEANED_CSV_PATH   = "cleaned.csv"    ← Output CSV ka naam
+  TEST_SIZE          = 0.2              ← 20% data test ke liye
+  RANDOM_STATE       = 42               ← Reproducibility ke liye
+  MISSING_THRESHOLD  = 0.5              ← 50% se zyada missing → drop
+  OUTLIER_IQR_FACTOR = 1.5              ← IQR multiplier (standard)
+  IMBALANCE_THRESHOLD= 0.2              ← 20% se kam → SMOTE apply
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COMPLETE FLOW SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  CSV File
+      ↓
+  STEP 1  → Load karo
+      ↓
+  STEP 2  → Useless columns hatao (missing/constant/ID)
+      ↓
+  STEP 3  → Numerical vs Categorical identify karo
+      ↓
+  STEP 4  → Missing values fill karo (median/mode)
+      ↓
+  STEP 5  → Outliers cap karo (IQR method)
+      ↓
+  STEP 6  → Encode karo (OHE/Label) + Scale karo (StandardScaler)
+      ↓
+  STEP 7  → Cleaned CSV save karo
+      ↓
+  STEP 8  → Task detect karo (Classification / Regression)
+      ↓
+  Train/Test Split (80% train, 20% test)
+      ↓
+  STEP 9  → SMOTE (sirf Classification, sirf training data)
+      ↓
+  STEP 10 → Sare models train karo + GridSearchCV tuning
+      ↓
+  STEP 10b→ Smart selection — reason ke saath best model choose karo
+      ↓
+  STEP 11 → Best model pickle mein save karo
+      ↓
+  DONE ✔
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COMMON ISSUES & SOLUTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Problem: Sare models 100% accuracy de rahe hain
+  Cause  : Data leakage — koi feature column mein answer hai
+  Fix    : df.corr()[TARGET_COLUMN] se suspicious columns dhundho
+
+  Problem: SMOTE error aa raha hai
+  Cause  : imbalanced-learn install nahi
+  Fix    : pip install imbalanced-learn
+
+  Problem: LightGBM/XGBoost nahi chal raha
+  Cause  : Libraries missing
+  Fix    : pip install lightgbm xgboost
+
+  Problem: File not found error
+  Cause  : CSV_PATH galat hai
+  Fix    : Sahi path daalo CSV_PATH variable mein
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
